@@ -26,7 +26,6 @@ import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Method;
 import java.net.HttpURLConnection;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 
 import javax.ws.rs.Path;
@@ -44,6 +43,8 @@ import si.mazi.rescu.serialization.jackson.JacksonObjectMapperFactory;
 import si.mazi.rescu.serialization.jackson.JacksonRequestResponseLogger;
 import si.mazi.rescu.serialization.jackson.JacksonRequestWriter;
 import si.mazi.rescu.serialization.jackson.JacksonResponseReader;
+import si.mazi.rescu.serialization.jackson.serializers.HttpRequest;
+import si.mazi.rescu.serialization.jackson.serializers.HttpResponse;
 
 /**
  * @author Matija Mazi
@@ -64,8 +65,8 @@ public class RestInvocationHandler implements InvocationHandler {
 
     private final Map<Method, RestMethodMetadata> methodMetadataCache = new HashMap<>();
 
-    private Request outgoing;
-    private Response incoming;
+    private HttpRequest outgoing;
+    private HttpResponse incoming;
 
     private final long startNano;
     private final long originTimeNanos;
@@ -171,13 +172,13 @@ public class RestInvocationHandler implements InvocationHandler {
         final String requestBody = requestWriter.writeBody(invocation);
 
         HttpURLConnection conn = httpTemplate.send(invocation.getInvocationUrl(), requestBody, invocation.getAllHttpHeaders(), methodMetadata.getHttpMethod());
-        outgoing = new Request(invocation.getInvocationUrl(), conn.getRequestMethod(), conn.getRequestProperties(), requestBody);
+        outgoing = new HttpRequest(invocation.getInvocationUrl(), conn.getRequestMethod(), conn.getRequestProperties(), requestBody, originTimeNanos, startNano);
         return conn;
     }
 
     protected Object receiveAndMap(RestMethodMetadata methodMetadata, HttpURLConnection connection) throws IOException {
         InvocationResult invocationResult = httpTemplate.receive(connection);
-        incoming = new Response(invocationResult.getStatusCode(), invocationResult.getHttpBody());
+        incoming = new HttpResponse(invocationResult.getStatusCode(), invocationResult.getHttpBody(), originTimeNanos, startNano);
         return mapInvocationResult(invocationResult, methodMetadata);
     }
 
@@ -201,32 +202,4 @@ public class RestInvocationHandler implements InvocationHandler {
         }
         return metadata;
     }
-
-  public class Request {
-    public String url;
-    public String method;
-    public Map<String, List<String>> headers;
-    public String body;
-    public long time;
-
-    public Request(String url, String method, Map<String, List<String>> headers, String body) {
-      this.url = url;
-      this.method = method;
-      this.headers = headers;
-      this.body = body;
-      this.time = originTimeNanos + (System.nanoTime() - startNano);
-    }
-  }
-
-  public class Response {
-    public int status;
-    public String body;
-    public long time;
-
-    public Response(int status, String body) {
-      this.status = status;
-      this.body = body;
-      this.time = originTimeNanos + (System.nanoTime() - startNano);
-    }
-  }
 }
