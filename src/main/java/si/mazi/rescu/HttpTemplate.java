@@ -22,23 +22,34 @@
  */
 package si.mazi.rescu;
 
-import oauth.signpost.OAuthConsumer;
-import oauth.signpost.exception.OAuthException;
-import oauth.signpost.http.HttpRequest;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import si.mazi.rescu.oauth.RescuOAuthRequestAdapter;
-import si.mazi.rescu.utils.HttpUtils;
-
-import javax.net.ssl.HostnameVerifier;
-import javax.net.ssl.HttpsURLConnection;
-import javax.net.ssl.SSLSocketFactory;
-import java.io.*;
-import java.net.*;
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.OutputStream;
+import java.net.HttpURLConnection;
+import java.net.InetSocketAddress;
+import java.net.Proxy;
+import java.net.URL;
+import java.net.URLConnection;
 import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.zip.GZIPInputStream;
+
+import javax.net.ssl.HostnameVerifier;
+import javax.net.ssl.HttpsURLConnection;
+import javax.net.ssl.SSLSocketFactory;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import oauth.signpost.OAuthConsumer;
+import oauth.signpost.exception.OAuthException;
+import oauth.signpost.http.HttpRequest;
+import si.mazi.rescu.oauth.RescuOAuthRequestAdapter;
+import si.mazi.rescu.serialization.jackson.JacksonRequestResponseLogger;
+import si.mazi.rescu.utils.HttpUtils;
 
 /**
  * Various HTTP utility methods
@@ -59,20 +70,24 @@ class HttpTemplate {
     private final SSLSocketFactory sslSocketFactory;
     private final HostnameVerifier hostnameVerifier;
     private final OAuthConsumer oAuthConsumer;
+    private final Logger requestResponseLogger;
+    private final JacksonRequestResponseLogger archiver;
 
 
     HttpTemplate(int readTimeout, String proxyHost, Integer proxyPort,
                  SSLSocketFactory sslSocketFactory, HostnameVerifier hostnameVerifier, OAuthConsumer oAuthConsumer) {
-      this(0, readTimeout, proxyHost, proxyPort, sslSocketFactory, hostnameVerifier, oAuthConsumer);
+      this(0, readTimeout, proxyHost, proxyPort, sslSocketFactory, hostnameVerifier, oAuthConsumer, null);
     }
-    
+
     HttpTemplate(int connTimeout, int readTimeout, String proxyHost, Integer proxyPort,
-                 SSLSocketFactory sslSocketFactory, HostnameVerifier hostnameVerifier, OAuthConsumer oAuthConsumer) {
+                 SSLSocketFactory sslSocketFactory, HostnameVerifier hostnameVerifier, OAuthConsumer oAuthConsumer, Logger requestResponseLogger) {
         this.connTimeout = connTimeout;
         this.readTimeout = readTimeout;
         this.sslSocketFactory = sslSocketFactory;
         this.hostnameVerifier = hostnameVerifier;
         this.oAuthConsumer = oAuthConsumer;
+        this.requestResponseLogger = requestResponseLogger;
+        this.archiver = requestResponseLogger == null ? null : new JacksonRequestResponseLogger(requestResponseLogger);
 
         defaultHttpHeaders.put("Accept-Charset", CHARSET_UTF_8);
         // defaultHttpHeaders.put("Content-Type", "application/x-www-form-urlencoded");
@@ -98,6 +113,10 @@ class HttpTemplate {
 
         int contentLength = requestBody == null ? 0 : requestBody.getBytes().length;
         HttpURLConnection connection = configureURLConnection(method, urlString, httpHeaders, contentLength);
+
+        if (requestResponseLogger != null) {
+          archiver.logRequest(urlString, method.toString(), connection.getRequestProperties(), requestBody);
+        }
 
         if (oAuthConsumer != null) {
             HttpRequest request = new RescuOAuthRequestAdapter(connection, requestBody);
@@ -129,6 +148,7 @@ class HttpTemplate {
             responseString = responseString.substring(1);
         }
         log.trace("Http call returned {}; response body:\n{}", httpStatus, responseString);
+        archiver.logResponse(httpStatus, responseString);
 
         return new InvocationResult(responseString, httpStatus);
     }
@@ -180,19 +200,19 @@ class HttpTemplate {
         if (connTimeout > 0) {
           connection.setConnectTimeout(connTimeout);
         }
-        
+
         if (connection instanceof HttpsURLConnection) {
             HttpsURLConnection httpsConnection = (HttpsURLConnection)connection;
-            
+
             if (sslSocketFactory != null) {
                 httpsConnection.setSSLSocketFactory(sslSocketFactory);
             }
-            
+
             if (hostnameVerifier != null) {
                 httpsConnection.setHostnameVerifier(hostnameVerifier);
             }
         }
-        
+
         return connection;
     }
 

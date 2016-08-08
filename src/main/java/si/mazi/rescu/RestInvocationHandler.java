@@ -21,24 +21,27 @@
  */
 package si.mazi.rescu;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import si.mazi.rescu.serialization.PlainTextResponseReader;
-import si.mazi.rescu.serialization.ToStringRequestWriter;
-import si.mazi.rescu.serialization.jackson.DefaultJacksonObjectMapperFactory;
-import si.mazi.rescu.serialization.jackson.JacksonObjectMapperFactory;
-import si.mazi.rescu.serialization.jackson.JacksonRequestWriter;
-import si.mazi.rescu.serialization.jackson.JacksonResponseReader;
-
-import javax.ws.rs.Path;
-import javax.ws.rs.core.MediaType;
 import java.io.IOException;
 import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Method;
 import java.net.HttpURLConnection;
 import java.util.HashMap;
 import java.util.Map;
+
+import javax.ws.rs.Path;
+import javax.ws.rs.core.MediaType;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+
+import si.mazi.rescu.serialization.PlainTextResponseReader;
+import si.mazi.rescu.serialization.ToStringRequestWriter;
+import si.mazi.rescu.serialization.jackson.DefaultJacksonObjectMapperFactory;
+import si.mazi.rescu.serialization.jackson.JacksonObjectMapperFactory;
+import si.mazi.rescu.serialization.jackson.JacksonRequestWriter;
+import si.mazi.rescu.serialization.jackson.JacksonResponseReader;
 
 /**
  * @author Matija Mazi
@@ -54,12 +57,14 @@ public class RestInvocationHandler implements InvocationHandler {
     private final String intfacePath;
     private final String baseUrl;
     private final ClientConfig config;
+    private final Logger requestResponseLogger;
 
     private final Map<Method, RestMethodMetadata> methodMetadataCache = new HashMap<>();
 
-    RestInvocationHandler(Class<?> restInterface, String url, ClientConfig config) {
+    RestInvocationHandler(Class<?> restInterface, String url, ClientConfig config, Logger requestResponseLogger) {
         this.intfacePath = restInterface.getAnnotation(Path.class).value();
         this.baseUrl = url;
+        this.requestResponseLogger = requestResponseLogger;
 
         if (config == null) {
             config = new ClientConfig(); //default config
@@ -95,9 +100,10 @@ public class RestInvocationHandler implements InvocationHandler {
                 this.config.getHttpConnTimeout(),
                 this.config.getHttpReadTimeout(),
                 this.config.getProxyHost(), this.config.getProxyPort(),
-                this.config.getSslSocketFactory(), this.config.getHostnameVerifier(), this.config.getOAuthConsumer());
+                this.config.getSslSocketFactory(), this.config.getHostnameVerifier(), this.config.getOAuthConsumer(), this.requestResponseLogger);
     }
 
+    @Override
     public Object invoke(Object proxy, Method method, Object[] args) throws Throwable {
         if (method.getDeclaringClass().equals(Object.class)) {
             return method.invoke(this, args);

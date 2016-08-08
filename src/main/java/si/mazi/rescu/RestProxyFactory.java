@@ -24,6 +24,8 @@ package si.mazi.rescu;
 import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Proxy;
 
+import org.slf4j.Logger;
+
 /**
  * @author Matija Mazi
  * @see #createProxy(Class, InvocationHandler, Interceptor...)
@@ -43,8 +45,8 @@ public final class RestProxyFactory {
      * @param interceptors  The interceptors that will be able to intercept all proxy method calls
      * @return a proxy implementation of restInterface
      */
-    public static <I> I createProxy(Class<I> restInterface, String baseUrl, ClientConfig config, Interceptor... interceptors) {
-        return createProxy(restInterface, wrap(new RestInvocationHandler(restInterface, baseUrl, config), interceptors));
+    public static <I> I createProxy(Class<I> restInterface, String baseUrl, ClientConfig config, Logger requestResponseLogger, Interceptor... interceptors) {
+        return createProxy(restInterface, wrap(new RestInvocationHandler(restInterface, baseUrl, config, requestResponseLogger), interceptors));
     }
 
     static InvocationHandler wrap(InvocationHandler handler, Interceptor... interceptors) {
@@ -55,7 +57,11 @@ public final class RestProxyFactory {
     }
 
     public static <I> I createProxy(Class<I> restInterface, String baseUrl) {
-        return createProxy(restInterface, baseUrl, null);
+        return createProxy(restInterface, baseUrl, null, null);
+    }
+
+    public static <I> I createProxy(Class<I> restInterface, String baseUrl, Logger requestResponseLogger) {
+        return createProxy(restInterface, baseUrl, null, requestResponseLogger);
     }
 
     static <I> I createProxy(Class<I> restInterface, InvocationHandler restInvocationHandler, Interceptor... interceptors) {
