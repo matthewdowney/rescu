@@ -12,7 +12,6 @@ import si.mazi.rescu.RestInvocationHandler.Request;
 import si.mazi.rescu.RestInvocationHandler.Response;
 
 public class JacksonRequestResponseLogger {
-
   private Logger logger;
   private ObjectMapper mapper = new ObjectMapper();
 
@@ -29,7 +28,6 @@ public class JacksonRequestResponseLogger {
   public void logRequestResponse(Request request, Response response) throws JsonProcessingException {
     RequestResponse r = new RequestResponse(request, response);
     MDC.put(DESCRIMINATOR, mdcDescriminatorValue);
-    System.out.println(mapper.writeValueAsString(r));
     logger.info(mapper.writeValueAsString(r));
   }
 
