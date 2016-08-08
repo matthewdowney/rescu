@@ -26,6 +26,7 @@ import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Method;
 import java.net.HttpURLConnection;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 import javax.ws.rs.Path;
@@ -40,6 +41,7 @@ import si.mazi.rescu.serialization.PlainTextResponseReader;
 import si.mazi.rescu.serialization.ToStringRequestWriter;
 import si.mazi.rescu.serialization.jackson.DefaultJacksonObjectMapperFactory;
 import si.mazi.rescu.serialization.jackson.JacksonObjectMapperFactory;
+import si.mazi.rescu.serialization.jackson.JacksonRequestResponseLogger;
 import si.mazi.rescu.serialization.jackson.JacksonRequestWriter;
 import si.mazi.rescu.serialization.jackson.JacksonResponseReader;
 
@@ -58,13 +60,23 @@ public class RestInvocationHandler implements InvocationHandler {
     private final String baseUrl;
     private final ClientConfig config;
     private final Logger requestResponseLogger;
+    private final JacksonRequestResponseLogger archiver;
 
     private final Map<Method, RestMethodMetadata> methodMetadataCache = new HashMap<>();
+
+    private Request outgoing;
+    private Response incoming;
+
+    private final long startNano;
+    private final long originTimeNanos;
 
     RestInvocationHandler(Class<?> restInterface, String url, ClientConfig config, Logger requestResponseLogger) {
         this.intfacePath = restInterface.getAnnotation(Path.class).value();
         this.baseUrl = url;
         this.requestResponseLogger = requestResponseLogger;
+        this.archiver = requestResponseLogger == null ? null : new JacksonRequestResponseLogger(requestResponseLogger);
+        this.originTimeNanos = System.currentTimeMillis() * 1000;
+        this.startNano = System.nanoTime();
 
         if (config == null) {
             config = new ClientConfig(); //default config
@@ -123,7 +135,10 @@ public class RestInvocationHandler implements InvocationHandler {
                         requestWriterResolver, methodMetadata, args, config.getDefaultParamsMap());
                 connection = invokeHttp(invocation);
             }
-            return receiveAndMap(methodMetadata, connection);
+            Object returned = receiveAndMap(methodMetadata, connection);
+            if (archiver != null)
+              archiver.logRequestResponse(outgoing, incoming);
+            return returned;
         } catch (Exception e) {
             boolean shouldWrap = config.isWrapUnexpectedExceptions();
             if (e instanceof InvocationAware) {
@@ -155,11 +170,14 @@ public class RestInvocationHandler implements InvocationHandler {
         RequestWriter requestWriter = requestWriterResolver.resolveWriter(invocation.getMethodMetadata());
         final String requestBody = requestWriter.writeBody(invocation);
 
-        return httpTemplate.send(invocation.getInvocationUrl(), requestBody, invocation.getAllHttpHeaders(), methodMetadata.getHttpMethod());
+        HttpURLConnection conn = httpTemplate.send(invocation.getInvocationUrl(), requestBody, invocation.getAllHttpHeaders(), methodMetadata.getHttpMethod());
+        outgoing = new Request(invocation.getInvocationUrl(), conn.getRequestMethod(), conn.getRequestProperties(), requestBody);
+        return conn;
     }
 
     protected Object receiveAndMap(RestMethodMetadata methodMetadata, HttpURLConnection connection) throws IOException {
         InvocationResult invocationResult = httpTemplate.receive(connection);
+        incoming = new Response(invocationResult.getStatusCode(), invocationResult.getHttpBody());
         return mapInvocationResult(invocationResult, methodMetadata);
     }
 
@@ -183,4 +201,32 @@ public class RestInvocationHandler implements InvocationHandler {
         }
         return metadata;
     }
+
+  public class Request {
+    String url;
+    String method;
+    Map<String, List<String>> headers;
+    String body;
+    long time;
+
+    public Request(String url, String method, Map<String, List<String>> headers, String body) {
+      this.url = url;
+      this.method = method;
+      this.headers = headers;
+      this.body = body;
+      this.time = originTimeNanos + (System.nanoTime() - startNano);
+    }
+  }
+
+  public class Response {
+    int status;
+    String body;
+    long time;
+
+    public Response(int status, String body) {
+      this.status = status;
+      this.body = body;
+      this.time = originTimeNanos + (System.nanoTime() - startNano);
+    }
+  }
 }

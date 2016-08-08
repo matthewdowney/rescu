@@ -48,7 +48,6 @@ import oauth.signpost.OAuthConsumer;
 import oauth.signpost.exception.OAuthException;
 import oauth.signpost.http.HttpRequest;
 import si.mazi.rescu.oauth.RescuOAuthRequestAdapter;
-import si.mazi.rescu.serialization.jackson.JacksonRequestResponseLogger;
 import si.mazi.rescu.utils.HttpUtils;
 
 /**
@@ -70,9 +69,6 @@ class HttpTemplate {
     private final SSLSocketFactory sslSocketFactory;
     private final HostnameVerifier hostnameVerifier;
     private final OAuthConsumer oAuthConsumer;
-    private final Logger requestResponseLogger;
-    private final JacksonRequestResponseLogger archiver;
-
 
     HttpTemplate(int readTimeout, String proxyHost, Integer proxyPort,
                  SSLSocketFactory sslSocketFactory, HostnameVerifier hostnameVerifier, OAuthConsumer oAuthConsumer) {
@@ -86,8 +82,6 @@ class HttpTemplate {
         this.sslSocketFactory = sslSocketFactory;
         this.hostnameVerifier = hostnameVerifier;
         this.oAuthConsumer = oAuthConsumer;
-        this.requestResponseLogger = requestResponseLogger;
-        this.archiver = requestResponseLogger == null ? null : new JacksonRequestResponseLogger(requestResponseLogger);
 
         defaultHttpHeaders.put("Accept-Charset", CHARSET_UTF_8);
         // defaultHttpHeaders.put("Content-Type", "application/x-www-form-urlencoded");
@@ -113,10 +107,6 @@ class HttpTemplate {
 
         int contentLength = requestBody == null ? 0 : requestBody.getBytes().length;
         HttpURLConnection connection = configureURLConnection(method, urlString, httpHeaders, contentLength);
-
-        if (requestResponseLogger != null) {
-          archiver.logRequest(urlString, method.toString(), connection.getRequestProperties(), requestBody);
-        }
 
         if (oAuthConsumer != null) {
             HttpRequest request = new RescuOAuthRequestAdapter(connection, requestBody);
@@ -148,7 +138,6 @@ class HttpTemplate {
             responseString = responseString.substring(1);
         }
         log.trace("Http call returned {}; response body:\n{}", httpStatus, responseString);
-        archiver.logResponse(httpStatus, responseString);
 
         return new InvocationResult(responseString, httpStatus);
     }
