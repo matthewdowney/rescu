@@ -203,11 +203,11 @@ public class RestInvocationHandler implements InvocationHandler {
     }
 
   public class Request {
-    String url;
-    String method;
-    Map<String, List<String>> headers;
-    String body;
-    long time;
+    public String url;
+    public String method;
+    public Map<String, List<String>> headers;
+    public String body;
+    public long time;
 
     public Request(String url, String method, Map<String, List<String>> headers, String body) {
       this.url = url;
@@ -219,9 +219,9 @@ public class RestInvocationHandler implements InvocationHandler {
   }
 
   public class Response {
-    int status;
-    String body;
-    long time;
+    public int status;
+    public String body;
+    public long time;
 
     public Response(int status, String body) {
       this.status = status;

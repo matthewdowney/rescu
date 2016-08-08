@@ -33,9 +33,9 @@ public class JacksonRequestResponseLogger {
     logger.info(mapper.writeValueAsString(r));
   }
 
-  class RequestResponse {
-    Request request;
-    Response response;
+  public class RequestResponse {
+    public Request request;
+    public Response response;
 
     public RequestResponse(Request request, Response response) {
       this.request = request;
