@@ -13,34 +13,33 @@ import si.mazi.rescu.RestInvocationHandler.Response;
 
 public class JacksonRequestResponseLogger {
 
-  private Logger logger;
-  private ObjectMapper mapper = new ObjectMapper();
+	private Logger logger;
+	private ObjectMapper mapper = new ObjectMapper();
 
-  private static final String DESCRIMINATOR = "connection";
-  private final String mdcDescriminatorValue;
+	private static final String DESCRIMINATOR = "connection";
+	private final String mdcDescriminatorValue;
 
-  public JacksonRequestResponseLogger(Logger logger) {
-    this.logger = logger;
-    this.mdcDescriminatorValue = logger.getName();
-    mapper.setVisibility(PropertyAccessor.ALL, Visibility.NONE);
-    mapper.setVisibility(PropertyAccessor.FIELD, Visibility.ANY);
-  }
+	public JacksonRequestResponseLogger(Logger logger) {
+		this.logger = logger;
+		mdcDescriminatorValue = logger.getName();
+		mapper.setVisibility(PropertyAccessor.ALL, Visibility.NONE);
+		mapper.setVisibility(PropertyAccessor.FIELD, Visibility.ANY);
+	}
 
-  public void logRequestResponse(Request request, Response response) throws JsonProcessingException {
-    RequestResponse r = new RequestResponse(request, response);
-    MDC.put(DESCRIMINATOR, mdcDescriminatorValue);
-    System.out.println(mapper.writeValueAsString(r));
-    logger.info(mapper.writeValueAsString(r));
-  }
+	public void logRequestResponse(Request request, Response response) throws JsonProcessingException {
+		RequestResponse r = new RequestResponse(request, response);
+		MDC.put(DESCRIMINATOR, mdcDescriminatorValue);
+		logger.info(mapper.writeValueAsString(r));
+	}
 
-  class RequestResponse {
-    Request request;
-    Response response;
+	class RequestResponse {
+		Request request;
+		Response response;
 
-    public RequestResponse(Request request, Response response) {
-      this.request = request;
-      this.response = response;
-    }
-  }
+		public RequestResponse(Request request, Response response) {
+			this.request = request;
+			this.response = response;
+		}
+	}
 
 }
