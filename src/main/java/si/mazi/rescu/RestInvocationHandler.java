@@ -76,7 +76,7 @@ public class RestInvocationHandler implements InvocationHandler {
         this.baseUrl = url;
         this.requestResponseLogger = requestResponseLogger;
         this.archiver = requestResponseLogger == null ? null : new JacksonRequestResponseLogger(requestResponseLogger);
-        this.originTimeNanos = System.currentTimeMillis() * 1000;
+        this.originTimeNanos = System.currentTimeMillis() * 1_000_000;
         this.startNano = System.nanoTime();
 
         if (config == null) {
