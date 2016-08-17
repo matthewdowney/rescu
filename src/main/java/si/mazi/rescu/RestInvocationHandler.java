@@ -48,6 +48,9 @@ import si.mazi.rescu.serialization.jackson.serializers.HttpResponse;
 
 /**
  * @author Matija Mazi
+ * FIXME: {@link #invoke(Object, Method, Object[])} is sychronized to prevent
+ * concurrent REST calls from logging incorrect request/response pairs.
+ * This is potentially a performance sacrifice.
  */
 public class RestInvocationHandler implements InvocationHandler {
 
@@ -117,7 +120,7 @@ public class RestInvocationHandler implements InvocationHandler {
   }
 
   @Override
-  public Object invoke(Object proxy, Method method, Object[] args) throws Throwable {
+  public synchronized Object invoke(Object proxy, Method method, Object[] args) throws Throwable {
     if (method.getDeclaringClass().equals(Object.class)) {
       return method.invoke(this, args);
     }
