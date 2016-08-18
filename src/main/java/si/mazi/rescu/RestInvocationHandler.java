@@ -48,7 +48,7 @@ import si.mazi.rescu.serialization.jackson.serializers.HttpResponse;
 
 /**
  * @author Matija Mazi
- * FIXME: {@link #invoke(Object, Method, Object[])} is sychronized to prevent
+ * FIXME: {@link #invoke(Object, Method, Object[])} is synchronized to prevent
  * concurrent REST calls from logging incorrect request/response pairs.
  * This is potentially a performance sacrifice.
  */
