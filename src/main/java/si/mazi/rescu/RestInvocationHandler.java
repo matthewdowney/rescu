@@ -63,8 +63,8 @@ public class RestInvocationHandler implements InvocationHandler {
   private final String intfacePath;
   private final String baseUrl;
   private final ClientConfig config;
-  private final Logger requestResponseLogger;
   private final JacksonRequestResponseLogger archiver;
+  private final JacksonRequestResponseLogger errorArchiver;
 
   private final Map<Method, RestMethodMetadata> methodMetadataCache = new HashMap<>();
 
@@ -74,11 +74,12 @@ public class RestInvocationHandler implements InvocationHandler {
   private final long startNano;
   private final long originTimeNanos;
 
-  RestInvocationHandler(Class<?> restInterface, String url, ClientConfig config, Logger requestResponseLogger) {
+  RestInvocationHandler(Class<?> restInterface, String url, ClientConfig config, Logger requestResponseLogger, Logger errorLogger) {
     intfacePath = restInterface.getAnnotation(Path.class).value();
     baseUrl = url;
-    this.requestResponseLogger = requestResponseLogger;
+//    this.requestResponseLogger = requestResponseLogger;
     archiver = requestResponseLogger == null ? null : new JacksonRequestResponseLogger(requestResponseLogger);
+    errorArchiver = errorLogger == null ? null : new JacksonRequestResponseLogger(errorLogger);
     originTimeNanos = System.currentTimeMillis() * 1_000_000;
     startNano = System.nanoTime();
 
@@ -116,7 +117,7 @@ public class RestInvocationHandler implements InvocationHandler {
         this.config.getHttpConnTimeout(),
         this.config.getHttpReadTimeout(),
         this.config.getProxyHost(), this.config.getProxyPort(),
-        this.config.getSslSocketFactory(), this.config.getHostnameVerifier(), this.config.getOAuthConsumer(), this.requestResponseLogger);
+        this.config.getSslSocketFactory(), this.config.getHostnameVerifier(), this.config.getOAuthConsumer());
   }
 
   @Override
@@ -146,6 +147,9 @@ public class RestInvocationHandler implements InvocationHandler {
       return returned;
     } catch (Exception e) {
       e.printStackTrace();
+      if (errorArchiver != null) {
+        errorArchiver.logRequestResponse(outgoing, incoming);
+      }
       boolean shouldWrap = config.isWrapUnexpectedExceptions();
       if (e instanceof InvocationAware) {
         try {
@@ -177,7 +181,7 @@ public class RestInvocationHandler implements InvocationHandler {
     final String requestBody = requestWriter.writeBody(invocation);
 
     // this doesn't connect the connection
-    HttpURLConnection conn = httpTemplate.send(invocation.getInvocationUrl(), requestBody, invocation.getAllHttpHeaders(), methodMetadata.getHttpMethod());
+    HttpURLConnection conn = httpTemplate.send(invocation.getInvocationUrl(), requestBody, invocation.getHttpHeadersFromParams(), methodMetadata.getHttpMethod());
     outgoing = new HttpRequest(invocation.getInvocationUrl(), conn.getRequestMethod(), httpTemplate.getRecentRequestProperties(), requestBody, originTimeNanos, startNano);
     return conn;
   }

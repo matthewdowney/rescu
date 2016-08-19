@@ -77,13 +77,13 @@ class HttpTemplate {
 			SSLSocketFactory sslSocketFactory,
 			HostnameVerifier hostnameVerifier, OAuthConsumer oAuthConsumer) {
 		this(0, readTimeout, proxyHost, proxyPort, sslSocketFactory,
-				hostnameVerifier, oAuthConsumer, null);
+				hostnameVerifier, oAuthConsumer);
 	}
 
 	HttpTemplate(int connTimeout, int readTimeout, String proxyHost,
 			Integer proxyPort, SSLSocketFactory sslSocketFactory,
-			HostnameVerifier hostnameVerifier, OAuthConsumer oAuthConsumer,
-			Logger requestResponseLogger) {
+			HostnameVerifier hostnameVerifier, OAuthConsumer oAuthConsumer
+			) {
 		this.connTimeout = connTimeout;
 		this.readTimeout = readTimeout;
 		this.sslSocketFactory = sslSocketFactory;
@@ -136,7 +136,7 @@ class HttpTemplate {
 			}
 		}
 
-		recentRequestProperties = connection.getRequestProperties();
+		this.recentRequestProperties = connection.getRequestProperties();
 		if (contentLength > 0) {
 			// Write the request body
 			OutputStream out = connection.getOutputStream();
@@ -146,7 +146,7 @@ class HttpTemplate {
 		return connection;
 	}
 
-	InvocationResult receive(HttpURLConnection connection) throws IOException {
+  InvocationResult receive(HttpURLConnection connection) throws IOException {
 		int httpStatus = connection.getResponseCode();
 		log.debug("Request http status = {}", httpStatus);
 
