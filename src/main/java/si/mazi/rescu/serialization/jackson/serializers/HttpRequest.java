@@ -17,7 +17,7 @@ public class HttpRequest {
 
 	public HttpRequest(String url, String method, Map<String, List<String>> headers, String body, long originTimeNanos,
 			long startNano) {
-		this.url = url;
+		this.url = url.trim();
 		this.method = method;
 		this.headers = headers;
 		this.body = body;
