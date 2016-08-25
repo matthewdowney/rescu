@@ -11,6 +11,10 @@ public class HttpResponse {
 	public HttpResponse() {}
 
 	public HttpResponse(int status, String body, long originTimeNanos, long startNano) {
+	  create(status, body, originTimeNanos, startNano);
+	}
+
+	public void create(int status, String body, long originTimeNanos, long startNano) {
 		this.status = status;
 		this.body = body;
 		time = originTimeNanos + (System.nanoTime() - startNano);

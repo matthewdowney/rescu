@@ -22,7 +22,7 @@ public class JacksonRequestResponseLogger {
     this.mdcDescriminatorValue = logger.getName();
   }
 
-  public void logRequestResponse(HttpRequest request, HttpResponse response) throws JsonProcessingException {
+  public synchronized void logRequestResponse(HttpRequest request, HttpResponse response) throws JsonProcessingException {
     HttpRequestResponse r = new HttpRequestResponse(request, response);
     MDC.put(DESCRIMINATOR, mdcDescriminatorValue);
     logger.info(mapper.writeValueAsString(r));

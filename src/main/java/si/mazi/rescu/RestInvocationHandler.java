@@ -27,6 +27,11 @@ import java.lang.reflect.Method;
 import java.net.HttpURLConnection;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.ThreadFactory;
 
 import javax.ws.rs.Path;
 import javax.ws.rs.core.MediaType;
@@ -35,6 +40,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.common.util.concurrent.ThreadFactoryBuilder;
 
 import si.mazi.rescu.serialization.PlainTextResponseReader;
 import si.mazi.rescu.serialization.ToStringRequestWriter;
@@ -48,9 +54,6 @@ import si.mazi.rescu.serialization.jackson.serializers.HttpResponse;
 
 /**
  * @author Matija Mazi
- * FIXME: {@link #invoke(Object, Method, Object[])} is synchronized to prevent
- * concurrent REST calls from logging incorrect request/response pairs.
- * This is potentially a performance sacrifice.
  */
 public class RestInvocationHandler implements InvocationHandler {
 
@@ -65,31 +68,32 @@ public class RestInvocationHandler implements InvocationHandler {
   private final ClientConfig config;
   private final JacksonRequestResponseLogger archiver;
   private final JacksonRequestResponseLogger errorArchiver;
-
-  private final Map<Method, RestMethodMetadata> methodMetadataCache = new HashMap<>();
-
-  private HttpRequest outgoing;
-  private HttpResponse incoming;
-
   private final long startNano;
   private final long originTimeNanos;
 
-  RestInvocationHandler(Class<?> restInterface, String url, ClientConfig config, Logger requestResponseLogger, Logger errorLogger) {
+  private final Map<Method, RestMethodMetadata> methodMetadataCache = new HashMap<>();
+
+  // Polling threads
+  private final ThreadFactory namedThreadFactory = new ThreadFactoryBuilder().setNameFormat("RestPollingThread-%d")
+      .build();
+  private final ExecutorService executor = Executors.newFixedThreadPool(3, namedThreadFactory);
+
+  RestInvocationHandler(Class<?> restInterface, String url, ClientConfig config, Logger requestResponseLogger,
+      Logger errorLogger) {
     intfacePath = restInterface.getAnnotation(Path.class).value();
     baseUrl = url;
-//    this.requestResponseLogger = requestResponseLogger;
     archiver = requestResponseLogger == null ? null : new JacksonRequestResponseLogger(requestResponseLogger);
     errorArchiver = errorLogger == null ? null : new JacksonRequestResponseLogger(errorLogger);
     originTimeNanos = System.currentTimeMillis() * 1_000_000;
     startNano = System.nanoTime();
 
     if (config == null) {
-      config = new ClientConfig(); //default config
+      config = new ClientConfig(); // default config
     }
 
     this.config = config;
 
-    //setup default readers/writers
+    // setup default readers/writers
     JacksonObjectMapperFactory mapperFactory = config.getJacksonObjectMapperFactory();
     if (mapperFactory == null) {
       mapperFactory = new DefaultJacksonObjectMapperFactory();
@@ -97,14 +101,12 @@ public class RestInvocationHandler implements InvocationHandler {
     ObjectMapper mapper = mapperFactory.createObjectMapper();
 
     requestWriterResolver = new RequestWriterResolver();
-    /*requestWriterResolver.addWriter(null,
-                new NullRequestWriter());*/
-    requestWriterResolver.addWriter(MediaType.APPLICATION_FORM_URLENCODED,
-        new FormUrlEncodedRequestWriter());
-    requestWriterResolver.addWriter(MediaType.APPLICATION_JSON,
-        new JacksonRequestWriter(mapper));
-    requestWriterResolver.addWriter(MediaType.TEXT_PLAIN,
-        new ToStringRequestWriter());
+    /*
+     * requestWriterResolver.addWriter(null, new NullRequestWriter());
+     */
+    requestWriterResolver.addWriter(MediaType.APPLICATION_FORM_URLENCODED, new FormUrlEncodedRequestWriter());
+    requestWriterResolver.addWriter(MediaType.APPLICATION_JSON, new JacksonRequestWriter(mapper));
+    requestWriterResolver.addWriter(MediaType.TEXT_PLAIN, new ToStringRequestWriter());
 
     responseReaderResolver = new ResponseReaderResolver();
     responseReaderResolver.addReader(MediaType.APPLICATION_JSON,
@@ -112,16 +114,42 @@ public class RestInvocationHandler implements InvocationHandler {
     responseReaderResolver.addReader(MediaType.TEXT_PLAIN,
         new PlainTextResponseReader(this.config.isIgnoreHttpErrorCodes()));
 
-    //setup http client
-    httpTemplate = new HttpTemplate(
-        this.config.getHttpConnTimeout(),
-        this.config.getHttpReadTimeout(),
-        this.config.getProxyHost(), this.config.getProxyPort(),
-        this.config.getSslSocketFactory(), this.config.getHostnameVerifier(), this.config.getOAuthConsumer());
+    // setup http client
+    httpTemplate = new HttpTemplate(this.config.getHttpConnTimeout(), this.config.getHttpReadTimeout(),
+        this.config.getProxyHost(), this.config.getProxyPort(), this.config.getSslSocketFactory(),
+        this.config.getHostnameVerifier(), this.config.getOAuthConsumer());
   }
 
   @Override
-  public synchronized Object invoke(Object proxy, Method method, Object[] args) throws Throwable {
+  public Object invoke(Object proxy, Method method, Object[] args) throws Throwable {
+    // Create final strong references to each argument
+    final Object _proxy = proxy;
+    final Method _method = method;
+    final Object[] _args = args;
+
+    // Invoke the REST call
+    Future<Object> resultFuture = executor.submit(new Callable<Object>() {
+      @Override
+      public Object call() throws Exception {
+        try {
+          return _invoke(_proxy, _method, _args);
+        } catch (Throwable e) {
+          return e;
+        }
+      }
+    });
+
+    // If the result is an exception, throw it, otherwise return the value
+    Object result = resultFuture.get();
+    if (result instanceof Throwable)
+      throw (Throwable) result;
+    else
+      return result;
+  }
+
+  private Object _invoke(Object proxy, Method method, Object[] args) throws Throwable {
+    HttpRequest request = new HttpRequest();
+    HttpResponse response = new HttpResponse();
     if (method.getDeclaringClass().equals(Object.class)) {
       return method.invoke(this, args);
     }
@@ -136,19 +164,18 @@ public class RestInvocationHandler implements InvocationHandler {
     }
     try {
       synchronized (lock) {
-        invocation = RestInvocation.create(
-            requestWriterResolver, methodMetadata, args, config.getDefaultParamsMap());
-        connection = invokeHttp(invocation);
+        invocation = RestInvocation.create(requestWriterResolver, methodMetadata, args, config.getDefaultParamsMap());
+        connection = invokeHttp(invocation, request);
       }
-      Object returned = receiveAndMap(methodMetadata, connection);
+      Object returned = receiveAndMap(methodMetadata, connection, response);
       if (archiver != null) {
-        archiver.logRequestResponse(outgoing, incoming);
+        archiver.logRequestResponse(request, response);
       }
       return returned;
     } catch (Exception e) {
       e.printStackTrace();
       if (errorArchiver != null) {
-        errorArchiver.logRequestResponse(outgoing, incoming);
+        errorArchiver.logRequestResponse(request, response);
       }
       boolean shouldWrap = config.isWrapUnexpectedExceptions();
       if (e instanceof InvocationAware) {
@@ -174,21 +201,26 @@ public class RestInvocationHandler implements InvocationHandler {
     }
   }
 
-  protected HttpURLConnection invokeHttp(RestInvocation invocation) throws IOException {
+  protected HttpURLConnection invokeHttp(RestInvocation invocation, HttpRequest request) throws IOException {
     RestMethodMetadata methodMetadata = invocation.getMethodMetadata();
 
     RequestWriter requestWriter = requestWriterResolver.resolveWriter(invocation.getMethodMetadata());
     final String requestBody = requestWriter.writeBody(invocation);
 
     // this doesn't connect the connection
-    HttpURLConnection conn = httpTemplate.send(invocation.getInvocationUrl(), requestBody, invocation.getHttpHeadersFromParams(), methodMetadata.getHttpMethod());
-    outgoing = new HttpRequest(invocation.getInvocationUrl(), conn.getRequestMethod(), httpTemplate.getRecentRequestProperties(), requestBody, originTimeNanos, startNano);
+    HttpURLConnection conn = httpTemplate.send(invocation.getInvocationUrl(), requestBody,
+        invocation.getHttpHeadersFromParams(), methodMetadata.getHttpMethod());
+    // log the request data
+    request.create(invocation.getInvocationUrl(), conn.getRequestMethod(), httpTemplate.getRecentRequestProperties(),
+        requestBody, originTimeNanos, startNano);
     return conn;
   }
 
-  protected Object receiveAndMap(RestMethodMetadata methodMetadata, HttpURLConnection connection) throws IOException {
+  protected Object receiveAndMap(RestMethodMetadata methodMetadata, HttpURLConnection connection, HttpResponse response)
+      throws IOException {
     InvocationResult invocationResult = httpTemplate.receive(connection);
-    incoming = new HttpResponse(invocationResult.getStatusCode(), invocationResult.getHttpBody(), originTimeNanos, startNano);
+    // log the response data
+    response.create(invocationResult.getStatusCode(), invocationResult.getHttpBody(), originTimeNanos, startNano);
     return mapInvocationResult(invocationResult, methodMetadata);
   }
 
@@ -203,8 +235,8 @@ public class RestInvocationHandler implements InvocationHandler {
     return null;
   }
 
-  protected Object mapInvocationResult(InvocationResult invocationResult,
-      RestMethodMetadata methodMetadata) throws IOException {
+  protected Object mapInvocationResult(InvocationResult invocationResult, RestMethodMetadata methodMetadata)
+      throws IOException {
     return responseReaderResolver.resolveReader(methodMetadata).read(invocationResult, methodMetadata);
   }
 

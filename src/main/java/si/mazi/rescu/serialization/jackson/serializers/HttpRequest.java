@@ -18,11 +18,7 @@ public class HttpRequest {
 
   public HttpRequest(String url, String method, Map<String, List<String>> headers, String body, long originTimeNanos,
       long startNano) {
-    this.url = url.trim();
-    this.method = method;
-    this.headers = headers;
-    this.body = body;
-    this.time = originTimeNanos + (System.nanoTime() - startNano);
+    create(url, method, headers, body, originTimeNanos, startNano);
   }
 
   public HttpRequest(HttpRequest other) {
@@ -31,6 +27,15 @@ public class HttpRequest {
     this.headers = other.headers;
     this.body = other.body;
     this.time = other.time;
+  }
+
+  public void create(String url, String method, Map<String, List<String>> headers, String body, long originTimeNanos,
+      long startNano) {
+    this.url = url.trim();
+    this.method = method;
+    this.headers = headers;
+    this.body = body;
+    this.time = originTimeNanos + (System.nanoTime() - startNano);
   }
 
   public String getUrl() {
