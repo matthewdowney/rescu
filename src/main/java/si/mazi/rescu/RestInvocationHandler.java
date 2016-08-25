@@ -27,7 +27,6 @@ import java.lang.reflect.Method;
 import java.net.HttpURLConnection;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
@@ -76,7 +75,7 @@ public class RestInvocationHandler implements InvocationHandler {
   // Polling threads
   private final ThreadFactory namedThreadFactory = new ThreadFactoryBuilder().setNameFormat("RestPollingThread-%d")
       .build();
-  private final ExecutorService executor = Executors.newFixedThreadPool(3, namedThreadFactory);
+  private final ExecutorService pollingThreads = Executors.newFixedThreadPool(3, namedThreadFactory);
 
   RestInvocationHandler(Class<?> restInterface, String url, ClientConfig config, Logger requestResponseLogger,
       Logger errorLogger) {
@@ -128,14 +127,11 @@ public class RestInvocationHandler implements InvocationHandler {
     final Object[] _args = args;
 
     // Invoke the REST call
-    Future<Object> resultFuture = executor.submit(new Callable<Object>() {
-      @Override
-      public Object call() throws Exception {
-        try {
-          return _invoke(_proxy, _method, _args);
-        } catch (Throwable e) {
-          return e;
-        }
+    Future<Object> resultFuture = pollingThreads.submit(() -> {
+      try {
+        return _invoke(_proxy, _method, _args);
+      } catch (Throwable e) {
+        return e;
       }
     });
 
