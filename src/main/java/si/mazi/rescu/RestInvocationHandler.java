@@ -146,7 +146,7 @@ public class RestInvocationHandler implements InvocationHandler {
 					}
 					return returned;
 				} catch (Exception e) {
-					e.printStackTrace();
+					//					e.printStackTrace();
 					if (errorArchiver != null) {
 						errorArchiver.logRequestResponse(request, response);
 					}
@@ -170,7 +170,7 @@ public class RestInvocationHandler implements InvocationHandler {
 					if (shouldWrap) {
 						return new AwareException(e, invocation);
 					}
-					throw e;
+					return e;
 				}
 			});
 			// If the result is an exception, throw it, otherwise return the value
