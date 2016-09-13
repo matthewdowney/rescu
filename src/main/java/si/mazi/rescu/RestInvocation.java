@@ -256,7 +256,11 @@ public class RestInvocation implements Serializable {
     }
 
     public Map<String, String> getHttpHeadersFromParams() {
-        return getParamsMap().get(HeaderParam.class).asHttpHeaders();
+        Map<String, String> headers = getParamsMap().get(HeaderParam.class).asHttpHeaders();
+        if (methodMetadata.getReqContentType() != null && methodMetadata.getHttpMethod().equals(HttpMethod.POST)) {
+            headers.put("Content-Type", methodMetadata.getReqContentType());
+        }
+        return headers;
     }
 
     public String getReqContentType() {
