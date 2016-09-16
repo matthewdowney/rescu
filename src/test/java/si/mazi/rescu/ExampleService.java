@@ -21,147 +21,158 @@
  */
 package si.mazi.rescu;
 
-import si.mazi.rescu.dto.DummyAccountInfo;
-import si.mazi.rescu.dto.DummyTicker;
-import si.mazi.rescu.dto.GenericResult;
-import si.mazi.rescu.dto.Order;
-
-import javax.ws.rs.*;
-import javax.ws.rs.core.MediaType;
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.util.Date;
 import java.util.List;
 
+import javax.ws.rs.Consumes;
+import javax.ws.rs.DELETE;
+import javax.ws.rs.FormParam;
+import javax.ws.rs.GET;
+import javax.ws.rs.HeaderParam;
+import javax.ws.rs.POST;
+import javax.ws.rs.PUT;
+import javax.ws.rs.Path;
+import javax.ws.rs.PathParam;
+import javax.ws.rs.Produces;
+import javax.ws.rs.QueryParam;
+import javax.ws.rs.core.MediaType;
+
+import si.mazi.rescu.dto.DummyAccountInfo;
+import si.mazi.rescu.dto.DummyTicker;
+import si.mazi.rescu.dto.GenericResult;
+import si.mazi.rescu.dto.Order;
+
 /**
  * @author Matija Mazi
  */
 @Path("api/{version}")
-public interface ExampleService {
+public interface ExampleService extends RestInterface {
 
-    @POST
-    @Path("buy/")
-    @Produces(MediaType.APPLICATION_JSON)
-    @Consumes(MediaType.APPLICATION_FORM_URLENCODED)
-    Order buy(@FormParam("user") String user, @FormParam("password") String password, @FormParam("amount") BigDecimal amount, @FormParam("price") BigDecimal price);
+	@POST
+	@Path("buy/")
+	@Produces(MediaType.APPLICATION_JSON)
+	@Consumes(MediaType.APPLICATION_FORM_URLENCODED)
+	Order buy(@FormParam("user") String user, @FormParam("password") String password, @FormParam("amount") BigDecimal amount, @FormParam("price") BigDecimal price);
 
-    @POST
-    @Path("bitcoin_withdrawal/{user}")
-    @Produces(MediaType.APPLICATION_JSON)
-    @Consumes(MediaType.APPLICATION_FORM_URLENCODED)
-    Object withdrawBitcoin(@PathParam("user") String user, @FormParam("password") String password, @QueryParam("amount") BigDecimal amount, @QueryParam("address") String address);
+	@POST
+	@Path("bitcoin_withdrawal/{user}")
+	@Produces(MediaType.APPLICATION_JSON)
+	@Consumes(MediaType.APPLICATION_FORM_URLENCODED)
+	Object withdrawBitcoin(@PathParam("user") String user, @FormParam("password") String password, @QueryParam("amount") BigDecimal amount, @QueryParam("address") String address);
 
-    @GET
-    @Path("{ident: [a-Z]+}_{currency}/ticker")
-    @Consumes(MediaType.APPLICATION_FORM_URLENCODED)
-    DummyTicker getTicker(@PathParam("ident") String tradeableIdentifier, @PathParam("currency") String currency);
+	@GET
+	@Path("{ident: [a-Z]+}_{currency}/ticker")
+	@Consumes(MediaType.APPLICATION_FORM_URLENCODED)
+	DummyTicker getTicker(@PathParam("ident") String tradeableIdentifier, @PathParam("currency") String currency);
 
-    @POST
-    @FormParam("method")
-    @Consumes(MediaType.APPLICATION_FORM_URLENCODED)
-    DummyTicker getInfo(Long from, Long count) throws ExampleException;
+	@POST
+	@FormParam("method")
+	@Consumes(MediaType.APPLICATION_FORM_URLENCODED)
+	DummyTicker getInfo(Long from, Long count) throws ExampleException;
 
-    @GET
-    @Path("auth")
-    Object testBasicAuth(@HeaderParam("Authorization") BasicAuthCredentials credentials, @QueryParam("param") Integer value);
+	@GET
+	@Path("auth")
+	Object testBasicAuth(@HeaderParam("Authorization") BasicAuthCredentials credentials, @QueryParam("param") Integer value);
 
-    @POST
-    @Path("json")
-    @Consumes(MediaType.APPLICATION_JSON)
-    Object testJsonBody(DummyAccountInfo ticker);
+	@POST
+	@Path("json")
+	@Consumes(MediaType.APPLICATION_JSON)
+	Object testJsonBody(DummyAccountInfo ticker);
 
-    @POST
-    @Path("error")
-    @Consumes(MediaType.APPLICATION_JSON)
-    Object io() throws IOException;
+	@POST
+	@Path("error")
+	@Consumes(MediaType.APPLICATION_JSON)
+	Object io() throws IOException;
 
-    @GET
-    @Path("generic")
-    @Produces(MediaType.APPLICATION_JSON)
-    GenericResult<DummyTicker[]> getGeneric();
+	@GET
+	@Path("generic")
+	@Produces(MediaType.APPLICATION_JSON)
+	GenericResult<DummyTicker[]> getGeneric();
 
-    @GET
-    @Path("string")
-    @Produces(MediaType.TEXT_PLAIN)
-    String getString() throws MessageException;
+	@GET
+	@Path("string")
+	@Produces(MediaType.TEXT_PLAIN)
+	String getString() throws MessageException;
 
-    @PUT
-    @Path("number")
-    @Consumes(MediaType.TEXT_PLAIN)
-    @Produces(MediaType.TEXT_PLAIN)
-    String putNumber(int number);
+	@PUT
+	@Path("number")
+	@Consumes(MediaType.TEXT_PLAIN)
+	@Produces(MediaType.TEXT_PLAIN)
+	String putNumber(int number);
 
-    @GET
-    @Path("nonce")
-    @Consumes(MediaType.TEXT_PLAIN)
-    @Produces(MediaType.TEXT_PLAIN)
-    String getNonce(@FormParam("nonce") SynchronizedValueFactory nonce);
+	@GET
+	@Path("nonce")
+	@Consumes(MediaType.TEXT_PLAIN)
+	@Produces(MediaType.TEXT_PLAIN)
+	String getNonce(@FormParam("nonce") SynchronizedValueFactory nonce);
 
-    @GET
-    @Path("testSmallNumbers")
-    @Consumes(MediaType.TEXT_PLAIN)
-    @Produces(MediaType.TEXT_PLAIN)
-    String testSmallNumbersQuery(@QueryParam("value") BigDecimal value);
+	@GET
+	@Path("testSmallNumbers")
+	@Consumes(MediaType.TEXT_PLAIN)
+	@Produces(MediaType.TEXT_PLAIN)
+	String testSmallNumbersQuery(@QueryParam("value") BigDecimal value);
 
-    @GET
-    @Path("testSmallNumbers")
-    @Consumes(MediaType.APPLICATION_JSON)
-    @Produces(MediaType.TEXT_PLAIN)
-    String testSmallNumbersJson(BigDecimal value);
+	@GET
+	@Path("testSmallNumbers")
+	@Consumes(MediaType.APPLICATION_JSON)
+	@Produces(MediaType.TEXT_PLAIN)
+	String testSmallNumbersJson(BigDecimal value);
 
-    @GET
-    @Path("testExceptionOnArrayMethod")
-    @Produces(MediaType.APPLICATION_JSON)
-    DummyTicker[] testExceptionOnArrayMethod(String param) throws ExampleException;
+	@GET
+	@Path("testExceptionOnArrayMethod")
+	@Produces(MediaType.APPLICATION_JSON)
+	DummyTicker[] testExceptionOnArrayMethod(String param) throws ExampleException;
 
-    @GET
-    @Path("ioexception")
-    @Consumes(MediaType.APPLICATION_JSON)
-    Object testIOExceptionDeclared(DummyAccountInfo ticker) throws IOException;
+	@GET
+	@Path("ioexception")
+	@Consumes(MediaType.APPLICATION_JSON)
+	Object testIOExceptionDeclared(DummyAccountInfo ticker) throws IOException;
 
-    @GET
-    @Path("ioexception")
-    @Consumes(MediaType.APPLICATION_JSON)
-    DummyTicker testIOExceptionDeclared() throws IOException;
+	@GET
+	@Path("ioexception")
+	@Consumes(MediaType.APPLICATION_JSON)
+	DummyTicker testIOExceptionDeclared() throws IOException;
 
-    @GET
-    @Path("getWithBody")
-    @Consumes(MediaType.APPLICATION_JSON)
-    DummyTicker testGetMethodWithBody(DummyAccountInfo ticker) throws IOException;
+	@GET
+	@Path("getWithBody")
+	@Consumes(MediaType.APPLICATION_JSON)
+	DummyTicker testGetMethodWithBody(DummyAccountInfo ticker) throws IOException;
 
-    @POST
-    @Path("formPostCollection")
-    @Consumes(MediaType.APPLICATION_FORM_URLENCODED)
-    Object testFromPostCollection(@FormParam("data") List<String> data);
+	@POST
+	@Path("formPostCollection")
+	@Consumes(MediaType.APPLICATION_FORM_URLENCODED)
+	Object testFromPostCollection(@FormParam("data") List<String> data);
 
-    @POST
-    @Path("formPostCollection")
-    @Consumes(MediaType.APPLICATION_FORM_URLENCODED)
-    Object testFromPostCollectionAsArray(@FormParam("data[]") List<String> data);
+	@POST
+	@Path("formPostCollection")
+	@Consumes(MediaType.APPLICATION_FORM_URLENCODED)
+	Object testFromPostCollectionAsArray(@FormParam("data[]") List<String> data);
 
-    @POST
-    @Path("dateQueryParam")
-    @Consumes(MediaType.APPLICATION_FORM_URLENCODED)
-    Object testDateQueryParam(@QueryParam("startDate") Date date);
+	@POST
+	@Path("dateQueryParam")
+	@Consumes(MediaType.APPLICATION_FORM_URLENCODED)
+	Object testDateQueryParam(@QueryParam("startDate") Date date);
 
-    @GET
-    @Path("500")
-    Object test500() throws IOException;
+	@GET
+	@Path("500")
+	Object test500() throws IOException;
 
-    @GET
-    @Path("invocationAwareException")
-    Object invocationAwareException() throws ExampleInvocationAwareException;
+	@GET
+	@Path("invocationAwareException")
+	Object invocationAwareException() throws ExampleInvocationAwareException;
 
-    @GET
-    @Path("responseHeadersAwareException")
-    Object responseHeadersAwareException() throws ExampleResponseHeadersAwareException;
+	@GET
+	@Path("responseHeadersAwareException")
+	Object responseHeadersAwareException() throws ExampleResponseHeadersAwareException;
 
-    @DELETE
-    @Path("entity/{name}/remove")
-    Object removeEntity(@PathParam("name") String name);
+	@DELETE
+	@Path("entity/{name}/remove")
+	Object removeEntity(@PathParam("name") String name);
 
-    @POST
-    @Path(value = "future_orders_info.do")
-    Object getFuturesOrders(@FormParam("order_id") String orderId, @HeaderParam("sign") ParamsDigest signer)
-            throws IOException;
+	@POST
+	@Path(value = "future_orders_info.do")
+	Object getFuturesOrders(@FormParam("order_id") String orderId, @HeaderParam("sign") ParamsDigest signer)
+			throws IOException;
 }

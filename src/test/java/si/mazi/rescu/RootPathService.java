@@ -30,9 +30,9 @@ import javax.ws.rs.QueryParam;
  * @author Matija Mazi
  */
 @Path("/")
-public interface RootPathService {
+public interface RootPathService extends RestInterface {
 
-    @DELETE
-    @Path("cancel")
-    Double cancel(@QueryParam("id") String user);
+	@DELETE
+	@Path("cancel")
+	Double cancel(@QueryParam("id") String user);
 }

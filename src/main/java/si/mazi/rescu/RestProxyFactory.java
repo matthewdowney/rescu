@@ -32,41 +32,41 @@ import org.slf4j.Logger;
  */
 public final class RestProxyFactory {
 
-    private RestProxyFactory() { }
+	private RestProxyFactory() { }
 
-    /**
-     * Create a proxy implementation of restInterface. The interface must be annotated with jax-rs annotations. Basic support exists for {@link javax.ws.rs.Path}, {@link javax.ws.rs.GET},
-     * {@link javax.ws.rs.POST}, {@link javax.ws.rs.QueryParam}, {@link javax.ws.rs.FormParam}, {@link javax.ws.rs.HeaderParam}, {@link javax.ws.rs.PathParam}.
-     *
-     * @param restInterface The interface to implement
-     * @param baseUrl       The service base baseUrl
-     * @param <I>           The interface to implement
-     * @param config        Client configuration
-     * @param interceptors  The interceptors that will be able to intercept all proxy method calls
-     * @return a proxy implementation of restInterface
-     */
-    public static <I> I createProxy(Class<I> restInterface, String baseUrl, ClientConfig config, Logger requestResponseLogger, Logger errorLogger, Interceptor... interceptors) {
-        return createProxy(restInterface, wrap(new RestInvocationHandler(restInterface, baseUrl, config, requestResponseLogger, errorLogger), interceptors));
-    }
+	/**
+	 * Create a proxy implementation of restInterface. The interface must be annotated with jax-rs annotations. Basic support exists for {@link javax.ws.rs.Path}, {@link javax.ws.rs.GET},
+	 * {@link javax.ws.rs.POST}, {@link javax.ws.rs.QueryParam}, {@link javax.ws.rs.FormParam}, {@link javax.ws.rs.HeaderParam}, {@link javax.ws.rs.PathParam}.
+	 *
+	 * @param restInterface The interface to implement
+	 * @param baseUrl       The service base baseUrl
+	 * @param <I>           The interface to implement
+	 * @param config        Client configuration
+	 * @param interceptors  The interceptors that will be able to intercept all proxy method calls
+	 * @return a proxy implementation of restInterface
+	 */
+	public static <I extends RestInterface> I createProxy(Class<I> restInterface, String baseUrl, ClientConfig config, Logger requestResponseLogger, Logger errorLogger, Interceptor... interceptors) {
+		return createProxy(restInterface, wrap(new RestInvocationHandler(restInterface, baseUrl, config, requestResponseLogger, errorLogger), interceptors));
+	}
 
-    static InvocationHandler wrap(InvocationHandler handler, Interceptor... interceptors) {
-        for (Interceptor interceptor : interceptors) {
-            handler = new InterceptedInvocationHandler(interceptor, handler);
-        }
-        return handler;
-    }
+	static InvocationHandler wrap(InvocationHandler handler, Interceptor... interceptors) {
+		for (Interceptor interceptor : interceptors) {
+			handler = new InterceptedInvocationHandler(interceptor, handler);
+		}
+		return handler;
+	}
 
-    public static <I> I createProxy(Class<I> restInterface, String baseUrl) {
-        return createProxy(restInterface, baseUrl, null, null, null);
-    }
+	public static <I extends RestInterface> I createProxy(Class<I> restInterface, String baseUrl) {
+		return createProxy(restInterface, baseUrl, null, null, null);
+	}
 
-    public static <I> I createProxy(Class<I> restInterface, String baseUrl, Logger requestResponseLogger, Logger errorLogger) {
-        return createProxy(restInterface, baseUrl, null, requestResponseLogger, errorLogger);
-    }
+	public static <I extends RestInterface> I createProxy(Class<I> restInterface, String baseUrl, Logger requestResponseLogger, Logger errorLogger) {
+		return createProxy(restInterface, baseUrl, null, requestResponseLogger, errorLogger);
+	}
 
-    static <I> I createProxy(Class<I> restInterface, InvocationHandler restInvocationHandler, Interceptor... interceptors) {
-        Object proxy = Proxy.newProxyInstance(restInterface.getClassLoader(), new Class[]{restInterface}, wrap(restInvocationHandler, interceptors));
-        // noinspection unchecked
-        return (I) proxy;
-    }
+	static <I extends RestInterface> I createProxy(Class<I> restInterface, InvocationHandler restInvocationHandler, Interceptor... interceptors) {
+		Object proxy = Proxy.newProxyInstance(restInterface.getClassLoader(), new Class[]{restInterface}, wrap(restInvocationHandler, interceptors));
+		// noinspection unchecked
+		return (I) proxy;
+	}
 }

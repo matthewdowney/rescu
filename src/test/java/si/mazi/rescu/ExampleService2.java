@@ -21,23 +21,23 @@
  */
 package si.mazi.rescu;
 
-import si.mazi.rescu.dto.Order;
-
 import javax.ws.rs.GET;
 import javax.ws.rs.Path;
 import javax.ws.rs.Produces;
 import javax.ws.rs.QueryParam;
 import javax.ws.rs.core.MediaType;
 
+import si.mazi.rescu.dto.Order;
+
 /**
  * @author Matija Mazi
  */
 @Path("/")
-public interface ExampleService2 {
+public interface ExampleService2 extends RestInterface {
 
-    @GET
-    @Path("buy")
-    @Produces(MediaType.APPLICATION_JSON)
-    Order buy(@QueryParam("user") String user);
+	@GET
+	@Path("buy")
+	@Produces(MediaType.APPLICATION_JSON)
+	Order buy(@QueryParam("user") String user);
 
 }
