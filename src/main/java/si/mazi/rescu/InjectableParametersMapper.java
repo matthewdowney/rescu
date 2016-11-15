@@ -7,6 +7,7 @@ import java.util.HashMap;
 import java.util.Optional;
 import java.util.function.Function;
 
+import javax.ws.rs.FormParam;
 import javax.ws.rs.HeaderParam;
 import javax.ws.rs.PathParam;
 import javax.ws.rs.QueryParam;
@@ -133,12 +134,13 @@ public class InjectableParametersMapper {
                 + expectedAnnotationType.getSimpleName() + ", found=" + annotationNames + ")");
       }
 
-      // If it's a HeaderParam, QueryParam, or PathParam, verify that the
+      // If it's a HeaderParam, QueryParam, PathParam, or FormParam, verify that the
       // name is correct
       Annotation providedAnnotation = expected.get();
       checkAnnotationName(expectedName, HeaderParam.class, HeaderParam::value, providedAnnotation);
       checkAnnotationName(expectedName, QueryParam.class, QueryParam::value, providedAnnotation);
       checkAnnotationName(expectedName, PathParam.class, PathParam::value, providedAnnotation);
+      checkAnnotationName(expectedName, FormParam.class, FormParam::value, providedAnnotation);
     }
   }
 
