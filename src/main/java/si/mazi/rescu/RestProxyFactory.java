@@ -45,8 +45,8 @@ public final class RestProxyFactory {
 	 * @param interceptors  The interceptors that will be able to intercept all proxy method calls
 	 * @return a proxy implementation of restInterface
 	 */
-	public static <I extends RestInterface> I createProxy(Class<I> restInterface, String baseUrl, ClientConfig config, Logger requestResponseLogger, Logger errorLogger, Interceptor... interceptors) {
-		return createProxy(restInterface, wrap(new RestInvocationHandler(restInterface, baseUrl, config, requestResponseLogger, errorLogger), interceptors));
+	public static <I extends RestInterface> I createProxy(Class<I> restInterface, String baseUrl, ClientConfig config, Logger requestResponseLogger, Logger errorLogger, InjectableParametersMapper injectors, Interceptor... interceptors) {
+		return createProxy(restInterface, wrap(new RestInvocationHandler(restInterface, baseUrl, config, requestResponseLogger, errorLogger, injectors), interceptors));
 	}
 
 	static InvocationHandler wrap(InvocationHandler handler, Interceptor... interceptors) {
@@ -57,11 +57,15 @@ public final class RestProxyFactory {
 	}
 
 	public static <I extends RestInterface> I createProxy(Class<I> restInterface, String baseUrl) {
-		return createProxy(restInterface, baseUrl, null, null, null);
+		return createProxy(restInterface, baseUrl, null, null, null, null);
+	}
+
+	public static <I extends RestInterface> I createProxy(Class<I> restInterface, String baseUrl, Logger requestResponseLogger, Logger errorLogger, InjectableParametersMapper injectors) {
+		return createProxy(restInterface, baseUrl, null, requestResponseLogger, errorLogger, injectors);
 	}
 
 	public static <I extends RestInterface> I createProxy(Class<I> restInterface, String baseUrl, Logger requestResponseLogger, Logger errorLogger) {
-		return createProxy(restInterface, baseUrl, null, requestResponseLogger, errorLogger);
+		return createProxy(restInterface, baseUrl, null, requestResponseLogger, errorLogger, null);
 	}
 
 	static <I extends RestInterface> I createProxy(Class<I> restInterface, InvocationHandler restInvocationHandler, Interceptor... interceptors) {

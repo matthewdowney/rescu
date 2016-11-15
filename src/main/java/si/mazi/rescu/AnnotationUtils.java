@@ -23,8 +23,10 @@ package si.mazi.rescu;
 
 import java.lang.annotation.Annotation;
 import java.lang.reflect.Method;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -65,6 +67,42 @@ public final class AnnotationUtils {
             }
         }
         return null;
+    }
+    
+    static InjectableParam[] getInjectablesFromMethodAndClass(Method method) {
+      // Get all instances of the InjectableParams container that might be present on the method/superclasses
+      List<InjectableParams> injectablesContainer = AnnotationUtils.getAllFromMethodAndClass(method,
+          InjectableParams.class);
+      
+      // Get all instances of the single InjectableParam annotation that might be present on the method/superclasses
+      List<InjectableParam> injectableParam = AnnotationUtils.getAllFromMethodAndClass(method, InjectableParam.class);
+
+      // Concatenate them all together into a flat array of InjectableParam
+      InjectableParam[] injectables = new InjectableParam[0];
+      for (int i = 0; i < injectablesContainer.size(); ++i) {
+        injectables = Utils.arrayConcat(injectables, injectablesContainer.get(i).value());
+      }
+      InjectableParam[] intermediate = injectableParam.toArray(new InjectableParam[0]);
+      return Utils.arrayConcat(injectables, intermediate);
+    }
+    
+    @SuppressWarnings("unchecked")
+    static <A extends Annotation> List<A> getAllFromMethodAndClass(Method method, Class<A> annotationClass) {
+        List<A> annotations = new ArrayList<>();
+        A annotation = method.getAnnotation(annotationClass);
+        if (annotation != null)
+          annotations.add(annotation);
+        for (Class<?> cls = method.getDeclaringClass(); cls != null; cls = cls.getSuperclass()) {
+            if (cls.isAnnotationPresent(annotationClass)) {
+                annotations.add(cls.getAnnotation(annotationClass));
+            }
+        }
+        for (Class<?> intf : method.getDeclaringClass().getInterfaces()) {
+            if (intf.isAnnotationPresent(annotationClass)) {
+                annotations.add(intf.getAnnotation(annotationClass));
+            }
+        }
+        return annotations;
     }
 
     /**

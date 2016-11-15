@@ -21,10 +21,6 @@
  */
 package si.mazi.rescu;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import javax.ws.rs.*;
 import java.io.IOException;
 import java.io.Serializable;
 import java.lang.annotation.Annotation;
@@ -33,6 +29,19 @@ import java.lang.reflect.Type;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+
+import javax.ws.rs.Consumes;
+import javax.ws.rs.DELETE;
+import javax.ws.rs.GET;
+import javax.ws.rs.HEAD;
+import javax.ws.rs.OPTIONS;
+import javax.ws.rs.POST;
+import javax.ws.rs.PUT;
+import javax.ws.rs.Path;
+import javax.ws.rs.Produces;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * @author Matija Mazi
@@ -78,7 +87,7 @@ public class RestMethodMetadata implements Serializable {
         this.exceptionType = exceptionType;
     }
 
-    public static RestMethodMetadata create(Method method, String baseUrl, String intfacePath) {
+    public static RestMethodMetadata create(Method method, String baseUrl, String intfacePath, InjectableParametersMapper injectors) {
         String methodName = method.getName();
         Map<Class<? extends Annotation>, Annotation> methodAnnotationMap
                 = AnnotationUtils.getMethodAnnotationMap(method,
@@ -88,6 +97,18 @@ public class RestMethodMetadata implements Serializable {
         String reqContentType = consumes != null ? consumes.value()[0] : null;
         Produces produces = AnnotationUtils.getFromMethodOrClass(method, Produces.class);
         String resContentType = produces != null ? produces.value()[0] : null;
+
+        // If the method or class has any injectable parameters, get their annotations
+        if (injectors != null) {
+          InjectableParam[] injectables = AnnotationUtils.getInjectablesFromMethodAndClass(method);
+          Annotation[][] injectedParametersAnnotations = new Annotation[injectables.length][];
+          for (int i = 0; i < injectables.length; i++) {
+            injectedParametersAnnotations[i] = injectors.getAnnotations(injectables[i].name());
+          }
+          // Add any new parameter annotations
+          parameterAnnotations = Utils.arrayConcat(parameterAnnotations, injectedParametersAnnotations);
+        }
+
         Path pathAnn = method.getAnnotation(Path.class);
         String methodPathTemplate = pathAnn == null ? "" : pathAnn.value();
         HttpMethod httpMethod = getHttpMethod(method);
@@ -115,7 +136,7 @@ public class RestMethodMetadata implements Serializable {
                 baseUrl, intfacePath, methodPathTemplate, exceptionType,
                 reqContentType, resContentType, methodName, methodAnnotationMap, parameterAnnotations);
     }
-
+    
     static HttpMethod getHttpMethod(Method method) {
 
         HttpMethod httpMethod = null;

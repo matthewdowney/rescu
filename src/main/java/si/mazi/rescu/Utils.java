@@ -23,6 +23,8 @@
 
 package si.mazi.rescu;
 
+import java.util.Arrays;
+
 public final class Utils {
 
     private Utils() throws InstantiationException {
@@ -32,4 +34,13 @@ public final class Utils {
     public static String clip(String str, int startChars) {
         return str.length() <= startChars ? str : str.substring(0, startChars) + "...";
     }
+
+    public static <T> T[] arrayConcat(T[] a, T[] b) {
+      T[] concatted = Arrays.copyOf(a, a.length + b.length);
+      for (int i = 0; i < b.length; ++i) {
+        concatted[a.length + i] = b[i];
+      }
+      return concatted;
+    }
+
 }

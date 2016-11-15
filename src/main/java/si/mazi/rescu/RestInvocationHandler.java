@@ -69,6 +69,7 @@ public class RestInvocationHandler implements InvocationHandler {
 	private final JacksonRequestResponseLogger errorArchiver;
 	private final long startNano;
 	private final long originTimeNanos;
+	private final InjectableParametersMapper injectors;
 
 	private final Map<Method, RestMethodMetadata> methodMetadataCache = new HashMap<>();
 
@@ -77,14 +78,17 @@ public class RestInvocationHandler implements InvocationHandler {
 			.build();
 	private final ExecutorService pollingThreads = Executors.newFixedThreadPool(3, namedThreadFactory);
 
+  private Map<Method, String[]> methodInjectedArgsCache = new HashMap<>();
+
 	RestInvocationHandler(Class<?> restInterface, String url, ClientConfig config, Logger requestResponseLogger,
-			Logger errorLogger) {
+			Logger errorLogger, InjectableParametersMapper injectors) {
 		intfacePath = restInterface.getAnnotation(Path.class).value();
 		baseUrl = url;
 		archiver = requestResponseLogger == null ? null : new JacksonRequestResponseLogger(requestResponseLogger);
 		errorArchiver = errorLogger == null ? null : new JacksonRequestResponseLogger(errorLogger);
 		originTimeNanos = System.currentTimeMillis() * 1_000_000;
 		startNano = System.nanoTime();
+		this.injectors = injectors;
 
 		if (config == null) {
 			config = new ClientConfig(); // default config
@@ -129,6 +133,8 @@ public class RestInvocationHandler implements InvocationHandler {
 		}
 
 		RestMethodMetadata methodMetadata = getMetadata(method);
+		Object[] injectedArgs = getInjectedArgs(method);
+		args = Utils.arrayConcat(args == null ? new Object[0] : args, injectedArgs);
 
 		Object lock = getValueGenerator(args);
 		if (lock == null) {
@@ -183,7 +189,30 @@ public class RestInvocationHandler implements InvocationHandler {
 		}
 	}
 
-	protected HttpURLConnection invokeHttp(final RestInvocation invocation, HttpRequest request) throws IOException {
+  private Object[] getInjectedArgs(Method method) {
+    Object[] injectedArgs;
+    // If the method or class has any injectable parameters, get them
+    if (injectors != null) {
+      String[] injectedArgNames = methodInjectedArgsCache.get(method);
+      if (injectedArgNames == null) {
+        InjectableParam[] injectables = AnnotationUtils.getInjectablesFromMethodAndClass(method);
+        injectedArgNames = new String[injectables.length];
+        for (int i = 0; i < injectables.length; ++i) {
+          injectedArgNames[i] = injectables[i].name();
+        }
+        methodInjectedArgsCache.put(method, injectedArgNames);
+      }
+      injectedArgs = new Object[injectedArgNames.length];
+      for (int i = 0; i < injectedArgNames.length; ++i) {
+        injectedArgs[i] = injectors.getParam(injectedArgNames[i]);
+      }
+    } else {
+      injectedArgs = new Object[0];
+    }
+    return injectedArgs;
+  }
+
+  protected HttpURLConnection invokeHttp(final RestInvocation invocation, HttpRequest request) throws IOException {
 		RestMethodMetadata methodMetadata = invocation.getMethodMetadata();
 
 		RequestWriter requestWriter = requestWriterResolver.resolveWriter(invocation.getMethodMetadata());
@@ -225,7 +254,7 @@ public class RestInvocationHandler implements InvocationHandler {
 	private RestMethodMetadata getMetadata(Method method) {
 		RestMethodMetadata metadata = methodMetadataCache.get(method);
 		if (metadata == null) {
-			metadata = RestMethodMetadata.create(method, baseUrl, intfacePath);
+			metadata = RestMethodMetadata.create(method, baseUrl, intfacePath, injectors);
 			methodMetadataCache.put(method, metadata);
 		}
 		return metadata;
