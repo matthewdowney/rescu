@@ -31,6 +31,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.ThreadFactory;
+import java.util.function.Function;
 
 import javax.ws.rs.Path;
 import javax.ws.rs.core.MediaType;
@@ -80,8 +81,10 @@ public class RestInvocationHandler implements InvocationHandler {
 
   private Map<Method, String[]> methodInjectedArgsCache = new HashMap<>();
 
+  private final Function<Object, Object> resultInterceptor;
+
 	RestInvocationHandler(Class<?> restInterface, String url, ClientConfig config, Logger requestResponseLogger,
-			Logger errorLogger, InjectableParametersMapper injectors) {
+			Logger errorLogger, InjectableParametersMapper injectors, Function<Object, Object> resultInterceptor) {
 		intfacePath = restInterface.getAnnotation(Path.class).value();
 		baseUrl = url;
 		archiver = requestResponseLogger == null ? null : new JacksonRequestResponseLogger(requestResponseLogger);
@@ -89,6 +92,7 @@ public class RestInvocationHandler implements InvocationHandler {
 		originTimeNanos = System.currentTimeMillis() * 1_000_000;
 		startNano = System.nanoTime();
 		this.injectors = injectors;
+		this.resultInterceptor = resultInterceptor;
 
 		if (config == null) {
 			config = new ClientConfig(); // default config
@@ -179,8 +183,14 @@ public class RestInvocationHandler implements InvocationHandler {
 					return e;
 				}
 			});
-			// If the result is an exception, throw it, otherwise return the value
+			
+			// If they've defined a ResultInterceptor use it
 			Object result = resultFuture.get();
+			if (resultInterceptor != null) {
+			  result = resultInterceptor.apply(result);
+			}
+			
+			// If the result is an exception, throw it, otherwise return the value
 			if (result instanceof Throwable) {
 				throw (Throwable) result;
 			} else {

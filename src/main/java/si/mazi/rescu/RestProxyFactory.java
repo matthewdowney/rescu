@@ -23,6 +23,7 @@ package si.mazi.rescu;
 
 import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Proxy;
+import java.util.function.Function;
 
 import org.slf4j.Logger;
 
@@ -45,8 +46,8 @@ public final class RestProxyFactory {
 	 * @param interceptors  The interceptors that will be able to intercept all proxy method calls
 	 * @return a proxy implementation of restInterface
 	 */
-	public static <I extends RestInterface> I createProxy(Class<I> restInterface, String baseUrl, ClientConfig config, Logger requestResponseLogger, Logger errorLogger, InjectableParametersMapper injectors, Interceptor... interceptors) {
-		return createProxy(restInterface, wrap(new RestInvocationHandler(restInterface, baseUrl, config, requestResponseLogger, errorLogger, injectors), interceptors));
+	public static <I extends RestInterface> I createProxy(Class<I> restInterface, String baseUrl, ClientConfig config, Logger requestResponseLogger, Logger errorLogger, InjectableParametersMapper injectors, Function<Object, Object> resultInterceptor, Interceptor... interceptors) {
+		return createProxy(restInterface, wrap(new RestInvocationHandler(restInterface, baseUrl, config, requestResponseLogger, errorLogger, injectors, resultInterceptor), interceptors));
 	}
 
 	static InvocationHandler wrap(InvocationHandler handler, Interceptor... interceptors) {
@@ -60,12 +61,12 @@ public final class RestProxyFactory {
 		return createProxy(restInterface, baseUrl, null, null, null, null);
 	}
 
-	public static <I extends RestInterface> I createProxy(Class<I> restInterface, String baseUrl, Logger requestResponseLogger, Logger errorLogger, InjectableParametersMapper injectors) {
-		return createProxy(restInterface, baseUrl, null, requestResponseLogger, errorLogger, injectors);
+	public static <I extends RestInterface> I createProxy(Class<I> restInterface, String baseUrl, Logger requestResponseLogger, Logger errorLogger, InjectableParametersMapper injectors, Function<Object, Object> resultInterceptor) {
+		return createProxy(restInterface, baseUrl, null, requestResponseLogger, errorLogger, injectors, resultInterceptor);
 	}
 
-	public static <I extends RestInterface> I createProxy(Class<I> restInterface, String baseUrl, Logger requestResponseLogger, Logger errorLogger) {
-		return createProxy(restInterface, baseUrl, null, requestResponseLogger, errorLogger, null);
+	public static <I extends RestInterface> I createProxy(Class<I> restInterface, String baseUrl, Logger requestResponseLogger, Logger errorLogger, Function<Object, Object> resultInterceptor) {
+		return createProxy(restInterface, baseUrl, null, requestResponseLogger, errorLogger, null, resultInterceptor);
 	}
 
 	static <I extends RestInterface> I createProxy(Class<I> restInterface, InvocationHandler restInvocationHandler, Interceptor... interceptors) {
