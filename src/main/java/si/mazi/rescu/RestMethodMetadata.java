@@ -100,7 +100,7 @@ public class RestMethodMetadata implements Serializable {
 
         // If the method or class has any injectable parameters, get their annotations
         if (injectors != null) {
-          InjectableParam[] injectables = AnnotationUtils.getInjectablesFromMethodAndClass(method);
+          InjectableParam[] injectables = AnnotationUtils.getAllFromMethodAndClass(method, InjectableParam.class);
           Annotation[][] injectedParametersAnnotations = new Annotation[injectables.length][];
           for (int i = 0; i < injectables.length; i++) {
             injectedParametersAnnotations[i] = injectors.getAnnotations(injectables[i].name());

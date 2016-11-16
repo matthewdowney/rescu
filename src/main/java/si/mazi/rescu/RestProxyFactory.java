@@ -46,7 +46,7 @@ public final class RestProxyFactory {
 	 * @param interceptors  The interceptors that will be able to intercept all proxy method calls
 	 * @return a proxy implementation of restInterface
 	 */
-	public static <I extends RestInterface> I createProxy(Class<I> restInterface, String baseUrl, ClientConfig config, Logger requestResponseLogger, Logger errorLogger, InjectableParametersMapper injectors, Function<Object, Object> resultInterceptor, Interceptor... interceptors) {
+	public static <I extends RestInterface> I createProxy(Class<I> restInterface, String baseUrl, ClientConfig config, Logger requestResponseLogger, Logger errorLogger, InjectableParametersMapper<I> injectors, Function<Object, Object> resultInterceptor, Interceptor... interceptors) {
 		return createProxy(restInterface, wrap(new RestInvocationHandler(restInterface, baseUrl, config, requestResponseLogger, errorLogger, injectors, resultInterceptor), interceptors));
 	}
 
@@ -61,7 +61,7 @@ public final class RestProxyFactory {
 		return createProxy(restInterface, baseUrl, null, null, null, null);
 	}
 
-	public static <I extends RestInterface> I createProxy(Class<I> restInterface, String baseUrl, Logger requestResponseLogger, Logger errorLogger, InjectableParametersMapper injectors, Function<Object, Object> resultInterceptor) {
+	public static <I extends RestInterface> I createProxy(Class<I> restInterface, String baseUrl, Logger requestResponseLogger, Logger errorLogger, InjectableParametersMapper<I> injectors, Function<Object, Object> resultInterceptor) {
 		return createProxy(restInterface, baseUrl, null, requestResponseLogger, errorLogger, injectors, resultInterceptor);
 	}
 

@@ -70,7 +70,7 @@ public class RestInvocationHandler implements InvocationHandler {
 	private final JacksonRequestResponseLogger errorArchiver;
 	private final long startNano;
 	private final long originTimeNanos;
-	private final InjectableParametersMapper injectors;
+	private final InjectableParametersMapper<? extends RestInterface> injectors;
 
 	private final Map<Method, RestMethodMetadata> methodMetadataCache = new HashMap<>();
 
@@ -83,8 +83,8 @@ public class RestInvocationHandler implements InvocationHandler {
 
   private final Function<Object, Object> resultInterceptor;
 
-	RestInvocationHandler(Class<?> restInterface, String url, ClientConfig config, Logger requestResponseLogger,
-			Logger errorLogger, InjectableParametersMapper injectors, Function<Object, Object> resultInterceptor) {
+	<T extends RestInterface> RestInvocationHandler(Class<T> restInterface, String url, ClientConfig config, Logger requestResponseLogger,
+			Logger errorLogger, InjectableParametersMapper<T> injectors, Function<Object, Object> resultInterceptor) {
 		intfacePath = restInterface.getAnnotation(Path.class).value();
 		baseUrl = url;
 		archiver = requestResponseLogger == null ? null : new JacksonRequestResponseLogger(requestResponseLogger);
@@ -205,7 +205,7 @@ public class RestInvocationHandler implements InvocationHandler {
     if (injectors != null) {
       String[] injectedArgNames = methodInjectedArgsCache.get(method);
       if (injectedArgNames == null) {
-        InjectableParam[] injectables = AnnotationUtils.getInjectablesFromMethodAndClass(method);
+        InjectableParam[] injectables = AnnotationUtils.getAllFromMethodAndClass(method, InjectableParam.class);
         injectedArgNames = new String[injectables.length];
         for (int i = 0; i < injectables.length; ++i) {
           injectedArgNames[i] = injectables[i].name();

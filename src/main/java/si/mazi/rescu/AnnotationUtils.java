@@ -23,10 +23,9 @@ package si.mazi.rescu;
 
 import java.lang.annotation.Annotation;
 import java.lang.reflect.Method;
-import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 
 /**
@@ -69,40 +68,15 @@ public final class AnnotationUtils {
         return null;
     }
     
-    static InjectableParam[] getInjectablesFromMethodAndClass(Method method) {
-      // Get all instances of the InjectableParams container that might be present on the method/superclasses
-      List<InjectableParams> injectablesContainer = AnnotationUtils.getAllFromMethodAndClass(method,
-          InjectableParams.class);
-      
-      // Get all instances of the single InjectableParam annotation that might be present on the method/superclasses
-      List<InjectableParam> injectableParam = AnnotationUtils.getAllFromMethodAndClass(method, InjectableParam.class);
-
-      // Concatenate them all together into a flat array of InjectableParam
-      InjectableParam[] injectables = new InjectableParam[0];
-      for (int i = 0; i < injectablesContainer.size(); ++i) {
-        injectables = Utils.arrayConcat(injectables, injectablesContainer.get(i).value());
+    static <A extends Annotation> A[] getAllFromMethodAndClass(Method method, Class<A> annotationClass) {
+      A[] annotations = method.getDeclaredAnnotationsByType(annotationClass);
+      for (Class<?> cls = method.getDeclaringClass(); cls != null; cls = cls.getSuperclass()) {
+        annotations = Utils.arrayConcat(annotations, cls.getDeclaredAnnotationsByType(annotationClass));
       }
-      InjectableParam[] intermediate = injectableParam.toArray(new InjectableParam[0]);
-      return Utils.arrayConcat(injectables, intermediate);
-    }
-    
-    @SuppressWarnings("unchecked")
-    static <A extends Annotation> List<A> getAllFromMethodAndClass(Method method, Class<A> annotationClass) {
-        List<A> annotations = new ArrayList<>();
-        A annotation = method.getAnnotation(annotationClass);
-        if (annotation != null)
-          annotations.add(annotation);
-        for (Class<?> cls = method.getDeclaringClass(); cls != null; cls = cls.getSuperclass()) {
-            if (cls.isAnnotationPresent(annotationClass)) {
-                annotations.add(cls.getAnnotation(annotationClass));
-            }
-        }
-        for (Class<?> intf : method.getDeclaringClass().getInterfaces()) {
-            if (intf.isAnnotationPresent(annotationClass)) {
-                annotations.add(intf.getAnnotation(annotationClass));
-            }
-        }
-        return annotations;
+      for (Class<?> intf : method.getDeclaringClass().getInterfaces()) {
+        annotations = Utils.arrayConcat(annotations, intf.getDeclaredAnnotationsByType(annotationClass));
+      }
+      return annotations;
     }
 
     /**
@@ -116,5 +90,27 @@ public final class AnnotationUtils {
         }
         methodAnnotationMap.keySet().retainAll(annotationClasses);
         return methodAnnotationMap;
+    }
+
+    public static InjectableParam[] getUniqueInjectablesInClass(Class<? extends RestInterface> restInterface) {
+      // Get all injectables in the class
+      InjectableParam[] injectables = restInterface.getAnnotationsByType(InjectableParam.class);
+      for (Method m : restInterface.getMethods()) {
+        InjectableParam[] methodInjectables = m.getAnnotationsByType(InjectableParam.class);
+        injectables = Utils.arrayConcat(injectables, methodInjectables);
+      }
+
+      // Guarantee that any repeated names will be right next to each other
+      Arrays.sort(injectables, (i1, i2) -> i1.name().compareTo(i2.name()));
+
+      // Remove duplicates
+      InjectableParam[] uniqueInjectablesByName = new InjectableParam[injectables.length];
+      int j = 0;
+      for (int i = 0; i < injectables.length; ++i) {
+        while (i+1 < injectables.length && injectables[i+1].name().equals(injectables[i].name())) ++i;
+        uniqueInjectablesByName[j++] = injectables[i];
+      }
+      uniqueInjectablesByName = Arrays.copyOfRange(uniqueInjectablesByName, 0, j);
+      return uniqueInjectablesByName;
     }
 }

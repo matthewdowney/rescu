@@ -4,8 +4,10 @@ import java.lang.annotation.Annotation;
 import java.lang.reflect.Method;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Optional;
 import java.util.function.Function;
+import java.util.stream.Collectors;
 
 import javax.ws.rs.FormParam;
 import javax.ws.rs.HeaderParam;
@@ -23,15 +25,15 @@ import org.slf4j.LoggerFactory;
  * @author matthew
  *
  */
-public class InjectableParametersMapper {
+public class InjectableParametersMapper<T extends RestInterface> {
 
-  public interface Injector<T> {
+  public static interface Injector<T> {
     T get();
   }
 
-  public static class InjectableParametersBuilder {
+  public static class InjectableParametersBuilder<T extends RestInterface> {
     private final HashMap<String, Injector<?>> injectors = new HashMap<>();
-    private final Class<? extends RestInterface> clazz;
+    private final Class<T> clazz;
 
     /**
      * Create a builder for an {@link InjectableParametersMapper} intended for
@@ -40,7 +42,7 @@ public class InjectableParametersMapper {
      * @param interfaceClass
      *          The interface in which parameters will be injected.
      */
-    public InjectableParametersBuilder(Class<? extends RestInterface> interfaceClass) {
+    public InjectableParametersBuilder(Class<T> interfaceClass) {
       this.clazz = interfaceClass;
     }
 
@@ -57,7 +59,7 @@ public class InjectableParametersMapper {
      *          will be injected.
      * @return
      */
-    public <T> InjectableParametersBuilder add(String paramName, Injector<T> injector) {
+    public <K> InjectableParametersBuilder<T> add(String paramName, Injector<K> injector) {
       injectors.put(paramName, injector);
       return this;
     }
@@ -68,8 +70,8 @@ public class InjectableParametersMapper {
      * 
      * @return
      */
-    public InjectableParametersMapper build() {
-      return new InjectableParametersMapper(injectors, clazz);
+    public InjectableParametersMapper<T> build() {
+      return new InjectableParametersMapper<T>(injectors, clazz);
     }
   }
 
@@ -78,9 +80,18 @@ public class InjectableParametersMapper {
 
   // should only be called from the builder
   private InjectableParametersMapper(HashMap<String, Injector<?>> injectors,
-      Class<? extends RestInterface> restInterface) {
+      Class<T> restInterface) {
     this.injectors = injectors;
-
+    
+    // Make sure there aren't superfluous injectors
+    InjectableParam[] definedInjectables = AnnotationUtils.getUniqueInjectablesInClass(restInterface);
+    List<String> names = Arrays.stream(definedInjectables).map(InjectableParam::name).collect(Collectors.toList());
+    for (String name : injectors.keySet()) {
+      if (names.stream().noneMatch(n -> n.equals(name))) {
+        throw new IllegalArgumentException("Supplied injector with name=" + name + " doesn't correspond to an " + InjectableParam.class.getSimpleName() + " defined in " + restInterface.getSimpleName());
+      }
+    }
+    
     // Verify that each method has the injectors that it needs and do type
     // checking
     for (Method interfaceMethod : restInterface.getDeclaredMethods()) {
@@ -88,9 +99,22 @@ public class InjectableParametersMapper {
     }
   }
 
-  private void checkMethodInjectors(Method method, Class<? extends RestInterface> restInterface) {
-    // The injectable parameters defined in the interface
-    InjectableParam[] definedInjectables = AnnotationUtils.getInjectablesFromMethodAndClass(method);
+  private void checkMethodInjectors(Method method, Class<T> restInterface) {
+    // The injectable parameters defined at the interface level and from the method
+    InjectableParam[] definedInjectables = AnnotationUtils.getAllFromMethodAndClass(method, InjectableParam.class);
+
+    // Make sure the InjectableParams for this method (and those inherited from the class) have unique names
+    String[] names = Arrays.stream(definedInjectables).map(InjectableParam::name).sorted().toArray(String[]::new);
+    String prevName = "";
+    for (String name : names) {
+      if (name.equals(prevName)) {
+        throw new IllegalArgumentException("The interface " + restInterface.getSimpleName() + 
+            " defines multiple " + InjectableParam.class.getSimpleName() + 
+            "s with the same name (" + name + ") for the method " + method.getName() + ". These names should be unique.");
+      }
+      prevName = name;
+    }
+
     for (InjectableParam definedInjectable : definedInjectables) {
       // Verify that an injector exists
       if (!injectors.containsKey(definedInjectable.name())) {
@@ -98,7 +122,8 @@ public class InjectableParametersMapper {
             + " do not include one for " + definedInjectable.name());
       }
 
-      // Make sure the get method for the injector corresponds to what the interface is expecting
+      // Make sure the get method for the injector corresponds to what the
+      // interface is expecting
       Injector<?> providedInjector = injectors.get(definedInjectable.name());
       try {
         Method providedInjectorGetter = providedInjector.getClass().getDeclaredMethod("get", new Class<?>[0]);
@@ -111,7 +136,9 @@ public class InjectableParametersMapper {
   }
 
   private void checkInjectorGetter(Method getter, InjectableParam definedInjectable,
-      Class<? extends RestInterface> restInterface) {
+      Class<T> restInterface) {
+    Annotation[] providedAnnotations = getter.getDeclaredAnnotations();
+
     // Verify that the return type matches
     String expectedName = definedInjectable.name();
     if (!definedInjectable.type().isAssignableFrom(getter.getReturnType())
@@ -121,17 +148,15 @@ public class InjectableParametersMapper {
           + ".\n" + "(Interface asks for " + definedInjectable.type().getSimpleName() + " and the injector supplies "
           + getter.getReturnType().getSimpleName() + ").");
     }
-
-    Annotation[] providedAnnotations = getter.getDeclaredAnnotations();
+    
+    // Verify that all annotations are present and have the expected names/values
     for (Class<? extends Annotation> expectedAnnotationType : definedInjectable.annotations()) {
       // Verify that the annotation is present
       Optional<Annotation> expected = getAnnotationOfClass(expectedAnnotationType, providedAnnotations);
       if (!expected.isPresent()) {
-        String annotationNames = Arrays.stream(providedAnnotations).map(a -> a.annotationType().getSimpleName())
-            .reduce("[", (s1, s2) -> s1 + ", " + s2) + "]";
         throw new IllegalArgumentException(
             "Provided injector for " + expectedName + " doesn't have the required annotation (expected="
-                + expectedAnnotationType.getSimpleName() + ", found=" + annotationNames + ")");
+                + expectedAnnotationType.getSimpleName() + ", found=" + annotationsToString(providedAnnotations) + ")");
       }
 
       // If it's a HeaderParam, QueryParam, PathParam, or FormParam, verify that the
@@ -142,12 +167,29 @@ public class InjectableParametersMapper {
       checkAnnotationName(expectedName, PathParam.class, PathParam::value, providedAnnotation);
       checkAnnotationName(expectedName, FormParam.class, FormParam::value, providedAnnotation);
     }
+    
+    // Verify that only the annotations defined in the interface are provided
+    if (providedAnnotations.length > definedInjectable.annotations().length) {
+      throw new IllegalArgumentException(
+          "Extra annotations provided! Expected=" + annotationClassesToString(definedInjectable.annotations())
+              + " but found=" + annotationsToString(providedAnnotations));
+    }
   }
 
-  private <T> void checkAnnotationName(String expectedName, Class<T> clazz, Function<T, String> nameExtractor,
+  private String annotationsToString(Annotation[] providedAnnotations) {
+    return "[" + Arrays.stream(providedAnnotations).map(Annotation::annotationType).map(Class::getSimpleName).reduce(
+        (s1, s2) -> s1 + ", " + s2).orElse("").trim() + "]";
+  }
+
+  private String annotationClassesToString(Class<? extends Annotation>[] annotationClasses) {
+    return "[" + Arrays.stream(annotationClasses).map(Class::getSimpleName).reduce(
+        (s1, s2) -> s1 + ", " + s2).orElse("").trim() + "]";
+  }
+
+  private <K> void checkAnnotationName(String expectedName, Class<K> clazz, Function<K, String> nameExtractor,
       Annotation providedAnnotation) {
     if (clazz.isInstance(providedAnnotation)) {
-      String providedName = nameExtractor.apply((T) providedAnnotation);
+      String providedName = nameExtractor.apply(clazz.cast(providedAnnotation));
       if (!providedName.equals(expectedName)) {
         throw new IllegalArgumentException("Provided injector for " + expectedName
             + " doesn't have the expected name (expected=" + expectedName + ", found=" + providedName + ")");
@@ -155,7 +197,7 @@ public class InjectableParametersMapper {
     }
   }
 
-  private <T> Optional<Annotation> getAnnotationOfClass(Class<T> clazz, Annotation[] providedAnnotations) {
+  private <K> Optional<Annotation> getAnnotationOfClass(Class<K> clazz, Annotation[] providedAnnotations) {
     for (Annotation a : providedAnnotations) {
       if (clazz.isInstance(a)) {
         return Optional.of(a);
