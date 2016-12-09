@@ -35,14 +35,14 @@ class TestRestInvocationHandler extends RestInvocationHandler {
 	private final int responseStatusCode;
 	private final String responseBody;
 
-	public TestRestInvocationHandler(Class<?> restInterface, ClientConfig config,
+	public TestRestInvocationHandler(Class<? extends RestInterface> restInterface, ClientConfig config,
 			String responseBody, int responseStatusCode) {
 		this(restInterface, config, responseBody, responseStatusCode, "https://example.com");
 	}
 
-	public TestRestInvocationHandler(Class<?> restInterface, ClientConfig config,
+	public TestRestInvocationHandler(Class<? extends RestInterface> restInterface, ClientConfig config,
 			String responseBody, int responseStatusCode, String baseUrl) {
-		super(restInterface, baseUrl, config, null, null);
+		super(restInterface, baseUrl, config, null, null, null, null);
 
 		this.responseStatusCode = responseStatusCode;
 		this.responseBody = responseBody;
