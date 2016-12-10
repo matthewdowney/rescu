@@ -141,7 +141,7 @@ public class JacksonRequestResponseLogger {
   private void _log(HttpRequestResponse rr) throws JsonProcessingException {
     validateTimestamp(rr);
     MDC.put(DESCRIMINATOR, mdcDescriminatorValue);
-    logger.info(mapper.writeValueAsString(rr));
+    logger.trace(mapper.writeValueAsString(rr));
   }
 
   /**
