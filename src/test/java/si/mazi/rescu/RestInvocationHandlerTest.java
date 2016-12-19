@@ -199,11 +199,12 @@ public class RestInvocationHandlerTest {
 		};
 		ExampleService proxy = RestProxyFactory.createProxy(ExampleService.class, testHandler);
 
-		catchException(proxy).io();
-
-		assertThat(caughtException().getCause())
-		.isInstanceOf(IOException.class)
-		.hasMessage("A simulated I/O problem.");
+		try {
+      proxy.io();
+      assertThat(true).isEqualTo(false);
+		} catch (IOException ioe) {
+		  assertThat(ioe.getMessage()).isEqualTo("A simulated I/O problem.");
+		}
 	}
 
 	@Test
@@ -252,11 +253,12 @@ public class RestInvocationHandlerTest {
 		TestRestInvocationHandler testHandler = new TestRestInvocationHandler(ExampleService.class, new ClientConfig(), "Error message.", 400);
 		ExampleService proxy = RestProxyFactory.createProxy(ExampleService.class, testHandler);
 
-		catchException(proxy).getString();
-
-		assertThat(caughtException().getCause())
-		.isInstanceOf(MessageException.class)
-		.hasMessage("Error message.");
+		try {
+		  proxy.getString();
+		  assertThat(true).isEqualTo(false);
+		} catch (MessageException me) {
+		  assertThat(me.getMessage()).isEqualTo("Error message.");
+		}
 	}
 
 	@Test
@@ -319,11 +321,12 @@ public class RestInvocationHandlerTest {
 		TestRestInvocationHandler testHandler = new TestRestInvocationHandler(ExampleService.class, new ClientConfig(), null, 500);
 		ExampleService proxy = RestProxyFactory.createProxy(ExampleService.class, testHandler);
 
-		catchException(proxy).testIOExceptionDeclared(null);
-
-		assertThat(caughtException().getCause())
-		.isInstanceOf(HttpStatusIOException.class)
-		.hasMessage("HTTP status code was not OK: 500");
+		try {
+      proxy.testIOExceptionDeclared(null);
+      assertThat(true).isEqualTo(false);
+		} catch (HttpStatusIOException e) {
+		  assertThat(e.getMessage()).isEqualTo("HTTP status code was not OK: 500");
+		}
 	}
 
 	@Test
@@ -331,11 +334,11 @@ public class RestInvocationHandlerTest {
 		TestRestInvocationHandler testHandler = new TestRestInvocationHandler(ExampleService.class, new ClientConfig(), "{\"result\":\"error\",\"error\":\"Not parsable as ticker\"}", 200);
 		ExampleService proxy = RestProxyFactory.createProxy(ExampleService.class, testHandler);
 
-		catchException(proxy).testIOExceptionDeclared();
-
-		assertThat(caughtException().getCause())
-		.isInstanceOf(HttpStatusIOException.class)
-		.hasMessage(String.format("Response body could not be parsed as method return type %s: last and volume required", DummyTicker.class.toString()));
+		try {
+      proxy.testIOExceptionDeclared();
+		} catch (HttpStatusIOException e) {
+		  assertThat(e.getMessage()).isEqualTo(String.format("Response body could not be parsed as method return type %s: last and volume required", DummyTicker.class.toString()));
+		}
 	}
 
 	@Test
@@ -369,10 +372,12 @@ public class RestInvocationHandlerTest {
 		TestRestInvocationHandler testHandler = new TestRestInvocationHandler(ExampleService.class, new ClientConfig(), null, 500);
 		ExampleService proxy = RestProxyFactory.createProxy(ExampleService.class, testHandler, new HttpCodeExceptionInterceptor());
 
-		catchException(proxy).test500();
-
-		assertThat(caughtException().getCause())
-		.isInstanceOf(Http500Exception.class);
+		try {
+      proxy.test500();
+		  assertThat(true).isEqualTo(false);
+		} catch (Http500Exception e) {
+		  assertThat(true).isEqualTo(true);
+		}
 	}
 
 	@Test
